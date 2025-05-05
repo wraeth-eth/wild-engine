@@ -53,6 +53,8 @@
 
 mod camera;
 mod instance;
+mod model;
+mod resources;
 mod run;
 mod state;
 mod texture;

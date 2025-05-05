@@ -3,6 +3,11 @@ name = "game"
 version = "0.1.0"
 edition = "2024"
 
+[build-dependencies]
+anyhow = "1.0"
+fs_extra = "1.2"
+glob = "0.3"
+
 [dependencies]
 winit = { version = "0.29", features = ["android-native-activity"] }
 env_logger = "0.10"
@@ -11,12 +16,21 @@ wgpu = "25.0"
 pollster = "0.3"
 bytemuck = { version = "1.16", features = ["derive"] }
 anyhow = "1.0"
-cgmath="0.18"
+cgmath = "0.18"
+cfg-if = "1.0.0"
+tobj = { version = "3.2", default-features = false, features = ["async"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+reqwest = "0.12.15"
+
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Window",
+    "Element",
+    "Location",
+] }
 
 [dependencies.image]
 version = "0.24"
 default-features = false
 features = ["png", "jpeg"]
-
-# winit = "0.28"
-# gl = "0.10.0"
