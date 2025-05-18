@@ -50,7 +50,7 @@ impl<'a> State<'a> {
 
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::DX12,
+            backends: wgpu::Backends::all(),
             #[cfg(target_arch = "wasm32")]
             backends: wgpu::Backends::GL,
             ..Default::default()
@@ -306,6 +306,8 @@ impl<'a> State<'a> {
             resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .unwrap();
+
+        surface.configure(&device, &config);
 
         // MARK: New Construction
 
