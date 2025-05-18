@@ -43,12 +43,15 @@ pub struct Model {
 }
 
 pub struct Mesh {
+    #[allow(dead_code)]
     pub name: String,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: u32,
     pub material: usize,
 }
+
+#[allow(dead_code)]
 
 pub struct Material {
     pub name: String,
@@ -189,6 +192,8 @@ where
 }
 
 pub trait DrawLight<'a> {
+    #[allow(dead_code)]
+
     fn draw_light_mesh(
         &mut self,
         mesh: &'a Mesh,
