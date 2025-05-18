@@ -1,11 +1,16 @@
 use crate::camera;
 use crate::instance;
 use crate::model;
+use crate::projection;
 use crate::resources;
 use crate::texture;
 use cgmath::prelude::*;
 use model::Vertex;
 use wgpu::util::DeviceExt;
+use winit::event::ElementState;
+use winit::event::KeyEvent;
+use winit::event::MouseButton;
+use winit::keyboard::PhysicalKey;
 use winit::{event::WindowEvent, window::Window};
 
 const NUM_INSTANCE_PER_ROW: u32 = 10;
@@ -20,12 +25,15 @@ pub struct State<'a> {
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: &'a Window,
 
+    mouse_pressed: bool,
+
     render_pipeline: wgpu::RenderPipeline,
     camera: camera::Camera,
+    projection: projection::Projection,
     camera_uniform: camera::CameraUniform,
     camera_buffer: wgpu::Buffer,
     camera_bind_group: wgpu::BindGroup,
-    camera_controller: camera::CameraController,
+    pub camera_controller: camera::CameraController,
     instances: Vec<instance::Instance>,
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
@@ -142,18 +150,13 @@ impl<'a> State<'a> {
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
         });
 
-        let camera = camera::Camera {
-            eye: (0.0, 1.0, 2.0).into(),
-            target: (0.0, 0.0, 0.0).into(),
-            up: cgmath::Vector3::unit_y(),
-            aspect: config.width as f32 / config.height as f32,
-            fovy: 45.0,
-            znear: 0.1,
-            zfar: 100.0,
-        };
+        let camera = camera::Camera::new((0.0, 5.0, 10.0), cgmath::Deg(-90.0), cgmath::Deg(-20.0));
+        let projection =
+            projection::Projection::new(config.width, config.height, cgmath::Deg(45.0), 0.1, 100.0);
+        let camera_controller = camera::CameraController::new(4.0, 0.4);
 
         let mut camera_uniform = camera::CameraUniform::new();
-        camera_uniform.update_view_projection(&camera);
+        camera_uniform.update_view_projection(&camera, &projection);
 
         let camera_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Camera buffer"),
@@ -184,8 +187,6 @@ impl<'a> State<'a> {
                 resource: camera_buffer.as_entire_binding(),
             }],
         });
-
-        let camera_controller = camera::CameraController::new(0.2);
 
         let light_uniform = LightUniform {
             position: [2.0, 2.0, 2.0],
@@ -315,8 +316,10 @@ impl<'a> State<'a> {
             config,
             size,
             window,
+            mouse_pressed: false,
             render_pipeline,
             camera,
+            projection,
             camera_uniform,
             camera_buffer,
             camera_bind_group,
@@ -338,6 +341,7 @@ impl<'a> State<'a> {
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         if new_size.width > 0 && new_size.height > 0 {
+            self.projection.resize(new_size.width, new_size.height);
             self.size = new_size;
             self.config.width = new_size.width;
             self.config.height = new_size.height;
@@ -348,13 +352,37 @@ impl<'a> State<'a> {
     }
 
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        self.camera_controller.process_events(event)
+        match event {
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: PhysicalKey::Code(key),
+                        state,
+                        ..
+                    },
+                ..
+            } => self.camera_controller.process_keyboard(*key, *state),
+            WindowEvent::MouseWheel { delta, .. } => {
+                self.camera_controller.process_scroll(delta);
+                true
+            }
+            WindowEvent::MouseInput {
+                state,
+                button: MouseButton::Left,
+                ..
+            } => {
+                self.mouse_pressed = *state == ElementState::Pressed;
+                true
+            }
+            _ => false,
+        }
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, dt: instant::Duration) {
         // TODO: Add staging buffer instead of this: https://sotrh.github.io/learn-wgpu/beginner/tutorial6-uniforms/#a-controller-for-our-camera
-        self.camera_controller.update_camera(&mut self.camera);
-        self.camera_uniform.update_view_projection(&self.camera);
+        self.camera_controller.update_camera(&mut self.camera, dt);
+        self.camera_uniform
+            .update_view_projection(&self.camera, &self.projection);
         self.queue.write_buffer(
             &self.camera_buffer,
             0,
@@ -362,10 +390,11 @@ impl<'a> State<'a> {
         );
 
         let old_position: cgmath::Vector3<_> = self.light_uniform.position.into();
-        self.light_uniform.position =
-            (cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(1.0))
-                * old_position)
-                .into();
+        self.light_uniform.position = (cgmath::Quaternion::from_axis_angle(
+            cgmath::Vector3::unit_y(),
+            cgmath::Deg(60.0 * dt.as_secs_f32()),
+        ) * old_position)
+            .into();
         self.queue.write_buffer(
             &self.light_buffer,
             0,
@@ -373,19 +402,26 @@ impl<'a> State<'a> {
         );
 
         // Challenge: rotate the position of instances every frame.
-        // for instace in self.instances.iter_mut() {
-        //     let incremental_rotation_x =
-        //         cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(1.0));
-        //     // let incremental_rotation_y =
-        //     //     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(1.0));
-        //     // let incremental_rotation_z =
-        //     //     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(1.0));
+        for instance in self.instances.iter_mut() {
+            // let incremental_rotation_x =
+            //     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(1.0));
+            // let incremental_rotation_y =
+            //     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(5.0));
+            // let incremental_rotation_z =
+            //     cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(10.0));
+            #[rustfmt::skip]
+            let incremental_rotation = 
+                cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_x(), cgmath::Deg(1.0 * dt.as_secs_f32())) * 
+                cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_y(), cgmath::Deg(2.0 * dt.as_secs_f32())) * 
+                cgmath::Quaternion::from_axis_angle(cgmath::Vector3::unit_z(), cgmath::Deg(3.0 * dt.as_secs_f32()));
 
-        //     instace.rotation = incremental_rotation_x
-        //         // * incremental_rotation_y
-        //         // * incremental_rotation_z
-        //         * instace.rotation;
-        // }
+            instance.rotation = instance.rotation * incremental_rotation;
+
+            // instace.rotation = incremental_rotation_x
+            //     * incremental_rotation_y
+            //     * incremental_rotation_z
+            //     * instace.rotation;
+        }
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
@@ -465,7 +501,6 @@ impl<'a> State<'a> {
         }
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
-
         Ok(())
     }
 }

@@ -54,6 +54,7 @@
 mod camera;
 mod instance;
 mod model;
+mod projection;
 mod resources;
 mod run;
 mod state;
