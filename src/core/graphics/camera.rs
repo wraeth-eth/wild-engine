@@ -1,3 +1,4 @@
+use super::projection::Projection;
 use cgmath::*;
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 use winit::{
@@ -5,8 +6,6 @@ use winit::{
     event::{ElementState, MouseScrollDelta},
     keyboard::KeyCode,
 };
-
-use crate::projection::Projection;
 
 /// Homogeneous matrix used to fix differences between OpenGL (Y-up, Z-forward)
 /// and WGPU (Y-up, Z-back).

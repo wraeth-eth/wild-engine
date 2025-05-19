@@ -1,6 +1,5 @@
+use super::camera::OPENGL_TO_WGPU_MATRIX;
 use cgmath::*;
-
-use crate::camera::OPENGL_TO_WGPU_MATRIX;
 
 pub struct Projection {
     aspect: f32,

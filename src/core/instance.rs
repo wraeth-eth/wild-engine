@@ -1,4 +1,4 @@
-use crate::model;
+use super::model;
 
 pub struct Instance {
     pub position: cgmath::Vector3<f32>,

@@ -1,17 +1,18 @@
-use crate::camera;
-use crate::instance;
-use crate::model;
-use crate::projection;
-use crate::resources;
-use crate::texture;
 use cgmath::prelude::*;
-use model::Vertex;
 use wgpu::util::DeviceExt;
 use winit::event::ElementState;
 use winit::event::KeyEvent;
 use winit::event::MouseButton;
 use winit::keyboard::PhysicalKey;
 use winit::{event::WindowEvent, window::Window};
+use crate::core::model::Vertex;
+
+use super::instance;
+use super::graphics::camera;
+use super::graphics::projection;
+use super::model;
+use super::texture;
+use super::resources;
 
 const NUM_INSTANCE_PER_ROW: u32 = 10;
 
@@ -478,7 +479,7 @@ impl<'a> State<'a> {
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
-            use crate::model::DrawLight;
+            use super::model::DrawLight;
             render_pass.set_pipeline(&self.light_render_pipeline);
             render_pass.draw_light_model(
                 &self.obj_model,
