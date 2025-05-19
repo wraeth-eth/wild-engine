@@ -11,7 +11,7 @@ pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new().unwrap();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-    let mut state = core::State::new(&window).await;
+    let mut wild_engine = core::WildEngine::new(&window).await;
     let mut last_render_time = instant::Instant::now();
 
     let _ = event_loop
@@ -24,17 +24,22 @@ pub async fn run() {
                 // TODO: might not be best place for this
                 // Lock mouse
                 use winit::window::CursorGrabMode;
-                if let Err(err) = state.window.set_cursor_grab(CursorGrabMode::Confined) {
+                if let Err(err) = wild_engine
+                    .window()
+                    .set_cursor_grab(CursorGrabMode::Confined)
+                {
                     log::warn!("Could not lock cursor: {err:?}");
                 }
-                state.window.set_cursor_visible(false);
-
-                state.camera_controller.process_mouse(delta.0, delta.1);
+                wild_engine.window().set_cursor_visible(false);
+                wild_engine
+                    .camera_controller()
+                    .process_mouse(delta.0, delta.1);
             }
             Event::WindowEvent {
                 window_id,
                 ref event,
-            } if window_id == state.window().id() && !state.input(event) => match event {
+            } if window_id == wild_engine.window().id() && !wild_engine.input(event) => match event
+            {
                 #[cfg(not(target_arch = "wasm32"))]
                 WindowEvent::CloseRequested
                 | WindowEvent::KeyboardInput {
@@ -47,18 +52,18 @@ pub async fn run() {
                     ..
                 } => control_flow.exit(),
                 WindowEvent::Resized(physical_size) => {
-                    state.resize(*physical_size);
+                    wild_engine.resize_to(*physical_size);
                 }
                 WindowEvent::RedrawRequested => {
-                    state.window().request_redraw();
+                    wild_engine.window().request_redraw();
                     let now = instant::Instant::now();
                     let dt = now - last_render_time;
                     last_render_time = now;
-                    state.update(dt);
-                    match state.render() {
+                    wild_engine.update(dt);
+                    match wild_engine.render() {
                         Ok(_) => {}
                         Err(wgpu::SurfaceError::Lost | wgpu::SurfaceError::Outdated) => {
-                            state.resize(state.size)
+                            wild_engine.resize_to_current()
                         }
                         Err(wgpu::SurfaceError::OutOfMemory | wgpu::SurfaceError::Other) => {
                             log::error!("OutOfMemory");
