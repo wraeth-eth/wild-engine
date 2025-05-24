@@ -15,6 +15,7 @@ use super::texture;
 use super::resources;
 
 const NUM_INSTANCE_PER_ROW: u32 = 10;
+const SPACE_BETWEEN_INSTANCE: u32 = 100;
 
 // MARK: State
 
@@ -265,7 +266,7 @@ impl<'a> State<'a> {
             )
         };
 
-        const SPACE_BETWEEN: f32 = 3.0;
+        const SPACE_BETWEEN: f32 = 200.0;
         let instances = (0..NUM_INSTANCE_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCE_PER_ROW).map(move |x| {
@@ -299,7 +300,7 @@ impl<'a> State<'a> {
         });
 
         let obj_model =
-            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+            resources::load_model("bull.obj", &device, &queue, &texture_bind_group_layout)
                 .await
                 .unwrap();
 

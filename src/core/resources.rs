@@ -102,6 +102,30 @@ pub async fn load_model(
             layout,
         ))
     }
+    if materials.is_empty() {
+        // Debugging
+
+        let dummy_texture = texture::Texture::from_image(
+            device,
+            queue,
+            &image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+                1,
+                1,
+                image::Rgba([255, 255, 255, 255]),
+            )),
+            Some("white"),
+        )
+        .expect("Failed to create placeholder texture");
+        // let dummy_texture =
+        //     texture::Texture::from_bytes(device, queue, &[255, 255, 255], "white").unwrap();
+        materials.push(model::Material::new(
+            device,
+            "white",
+            dummy_texture.clone(),
+            dummy_texture,
+            layout,
+        ));
+    }
 
     let meshes = models
         .into_iter()
