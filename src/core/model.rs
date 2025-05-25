@@ -40,6 +40,8 @@ impl Vertex for ModelVertex {
 pub struct Model {
     pub meshes: Vec<Mesh>,
     pub materials: Vec<Material>,
+    /// The AABB for the model.
+    pub bounding_box: BoundingBox,
 }
 
 pub struct Mesh {
@@ -279,5 +281,31 @@ where
             light_bind_group,
             instances,
         );
+    }
+}
+
+pub struct BoundingBox {
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
+impl BoundingBox {
+    pub fn new(bounding_box: ([f32; 3], [f32; 3])) -> Self {
+        Self {
+            min: bounding_box.0,
+            max: bounding_box.1,
+        }
+    }
+
+    pub fn size(&self) -> [f32; 3] {
+        [
+            self.max[0] - self.min[0],
+            self.max[1] - self.min[1],
+            self.max[2] - self.min[2],
+        ]
+    }
+
+    pub fn max_extent(&self) -> f32 {
+        self.size()[0].max(self.size()[1]).max(self.size()[2])
     }
 }

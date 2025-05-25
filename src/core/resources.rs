@@ -3,7 +3,10 @@ use std::io::{BufReader, Cursor};
 use cfg_if::cfg_if;
 use wgpu::util::DeviceExt;
 
-use super::{model, texture};
+use super::{
+    model::{self},
+    texture,
+};
 
 #[cfg(target_arch = "wasm32")]
 fn format_url(file_name: &str) -> reqwest::Url {
@@ -127,6 +130,9 @@ pub async fn load_model(
         ));
     }
 
+    let mut bounding_min = [f32::INFINITY; 3];
+    let mut bounding_max = [f32::NEG_INFINITY; 3];
+
     let meshes = models
         .into_iter()
         .map(|m| {
@@ -169,6 +175,13 @@ pub async fn load_model(
                     }
                 })
                 .collect::<Vec<_>>();
+
+            vertices.iter().for_each(|vertex| {
+                for i in 0..3 {
+                    bounding_min[i] = bounding_min[i].min(vertex.position[i]);
+                    bounding_max[i] = bounding_max[i].max(vertex.position[i]);
+                }
+            });
 
             let indices = &m.mesh.indices;
             let mut triangles_included = vec![0; vertices.len()];
@@ -249,5 +262,9 @@ pub async fn load_model(
         })
         .collect::<Vec<_>>();
 
-    Ok(model::Model { meshes, materials })
+    Ok(model::Model {
+        meshes,
+        materials,
+        bounding_box: model::BoundingBox::new((bounding_min, bounding_max)),
+    })
 }

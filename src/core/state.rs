@@ -39,7 +39,9 @@ pub struct State<'a> {
     instances: Vec<instance::Instance>,
     instance_buffer: wgpu::Buffer,
     depth_texture: texture::Texture,
-    obj_model: model::Model,
+    is_bull: bool,
+    bull_obj_model: model::Model,
+    cube_obj_model: model::Model,
     light_uniform: LightUniform,
     light_buffer: wgpu::Buffer,
     light_bind_group: wgpu::BindGroup,
@@ -266,7 +268,22 @@ impl<'a> State<'a> {
             )
         };
 
-        const SPACE_BETWEEN: f32 = 200.0;
+        let cube_obj_model =
+            resources::load_model("cube.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
+
+        let bull_obj_model =
+            resources::load_model("bull.obj", &device, &queue, &texture_bind_group_layout)
+                .await
+                .unwrap();
+
+        // We're using cube model as the ref scale for 1.
+        let reference_max_extent = cube_obj_model.bounding_box.max_extent();
+        let bull_obj_max_extent = bull_obj_model.bounding_box.max_extent();
+        let scale_factor =  reference_max_extent / bull_obj_max_extent;
+
+        const SPACE_BETWEEN: f32 = 3.0;
         let instances = (0..NUM_INSTANCE_PER_ROW)
             .flat_map(|z| {
                 (0..NUM_INSTANCE_PER_ROW).map(move |x| {
@@ -284,7 +301,7 @@ impl<'a> State<'a> {
                     } else {
                         cgmath::Quaternion::from_axis_angle(position.normalize(), cgmath::Deg(45.0))
                     };
-                    instance::Instance { position, rotation }
+                    instance::Instance { position, rotation, scale_factor }
                 })
             })
             .collect::<Vec<_>>();
@@ -298,11 +315,6 @@ impl<'a> State<'a> {
             contents: bytemuck::cast_slice(&instance_data),
             usage: wgpu::BufferUsages::VERTEX,
         });
-
-        let obj_model =
-            resources::load_model("bull.obj", &device, &queue, &texture_bind_group_layout)
-                .await
-                .unwrap();
 
         surface.configure(&device, &config);
 
@@ -326,7 +338,9 @@ impl<'a> State<'a> {
             instances,
             instance_buffer,
             depth_texture,
-            obj_model,
+            is_bull: true,
+            cube_obj_model,
+            bull_obj_model,
             light_uniform,
             light_buffer,
             light_bind_group,
@@ -458,7 +472,7 @@ impl<'a> State<'a> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
+                            r: 1.0,
                             g: 0.2,
                             b: 0.3,
                             a: 1.0,
@@ -480,10 +494,12 @@ impl<'a> State<'a> {
 
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
 
+            let obj_model = if self.is_bull { &self.bull_obj_model } else { &self.cube_obj_model };
+
             use super::model::DrawLight;
             render_pass.set_pipeline(&self.light_render_pipeline);
             render_pass.draw_light_model(
-                &self.obj_model,
+                &self.cube_obj_model,
                 &self.camera_bind_group,
                 &self.light_bind_group,
             );
@@ -492,7 +508,7 @@ impl<'a> State<'a> {
 
             use model::DrawModel;
             render_pass.draw_model_instanced(
-                &self.obj_model,
+                obj_model,
                 &self.camera_bind_group,
                 &self.light_bind_group,
                 0..self.instances.len() as u32,
